@@ -256,7 +256,7 @@ analytics rule, and attach the playbook via an automation rule or **Run playbook
    output shows the summary (`tokens_found`, `newly_decrypted`, …). The Response
    step showing *Skipped* is normal — ARM-triggered runs are fire-and-forget.
 
-   ![Logic App run history — function call succeeded, decrypt summary in the response body](docs/images/logicapp-run.png)
+   ![Logic App run history — function call succeeded, decrypt summary in the response body](docs/images/logicapp-run-summary.png)
 3. After ~1–2 min of ingestion lag, run the join query above: rows covered by
    your submitted query show plaintext; everything else stays ciphertext.
 4. Resubmit the same query — `already_decrypted` rises and `newly_decrypted`
