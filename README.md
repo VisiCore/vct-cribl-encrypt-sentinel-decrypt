@@ -128,6 +128,26 @@ else stays ciphertext — the selective-decrypt model survives.
 
 ![Sentinel Logs decrypt join](docs/images/decrypt-query.png)
 
+### How this addresses double ingestion
+
+Because KQL cannot decrypt inline, showing plaintext in a query requires
+materializing it into a second table — some re-ingestion is inherent to the
+join-based approach. What the on-demand flow changes is *how much*:
+
+| | Continuous sweep (old, now disabled) | On-demand workbook (current) |
+|---|---|---|
+| What gets decrypted | **Every** token that lands in `CriblEncrypted_CL`, whether anyone ever queries it or not | Only tokens in the results of a KQL query an analyst explicitly submitted |
+| Second-table ingestion | ~100% of the encrypted stream, re-ingested a few minutes after arrival — you pay ingestion twice for everything | Proportional to what analysts actually request; a token is written **at most once ever** (the function checks `CriblDecrypted_CL` first and skips known tokens, so resubmits and overlapping queries write nothing new) |
+| Row size | Full plaintext rows | Just `{Token, Plaintext}` pairs — much smaller than the original events |
+| Plaintext at rest | Accumulates for the entire stream, silently defeating the selective-decrypt model | Only for data someone with Logic App run rights explicitly asked to reveal — an auditable ARM action |
+
+The sweep still exists in code but exits immediately unless the app setting
+`ENABLE_DECRYPT_SWEEP=true` is set — deliberately opt-in, not default.
+
+If a use case needs **zero** second-table ingestion, use the surfaces that
+return plaintext without storing it — the incident playbook (comment on the
+incident) or the `/api/ui` page — at the cost of losing the inline KQL join.
+
 ### Incident playbook (per-incident decryption)
 
 `playbook/playbook.bicep` deploys a Sentinel playbook (Logic App) for the incident
