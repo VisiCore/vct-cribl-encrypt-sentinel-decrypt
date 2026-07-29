@@ -1,0 +1,86 @@
+{
+  "version": "Notebook/1.0",
+  "items": [
+    {
+      "type": 1,
+      "content": {
+        "json": "## Cribl decrypt panel\nPut one or more Cribl `#keyId:iv:ct#` tokens (space- or comma-separated) in **Tokens**, set **FunctionEndpoint** to your decrypt Function URL (including `?code=`), and the grid below shows the decrypted plaintext.\n\nKQL can't AES-decrypt inline, so this calls the Azure Function (which holds no keys itself \u2014 it pulls them from Key Vault) and renders the result. _POC note: the function key is a secret; prefer a per-user prompt over saving it in the workbook._"
+      },
+      "name": "intro"
+    },
+    {
+      "type": 9,
+      "content": {
+        "version": "KqlParameterItem/1.0",
+        "parameters": [
+          {
+            "id": "p-endpoint",
+            "version": "KqlParameterItem/1.0",
+            "name": "FunctionEndpoint",
+            "label": "Function endpoint (incl. ?code=)",
+            "type": 1,
+            "isRequired": true,
+            "value": "https://cribldec-func-ukz4eyn7t4iik.azurewebsites.net/api/decrypt?code=PASTE_FUNCTION_KEY"
+          },
+          {
+            "id": "p-tokens",
+            "version": "KqlParameterItem/1.0",
+            "name": "Tokens",
+            "label": "Tokens (space/comma-separated)",
+            "type": 1,
+            "isRequired": true,
+            "value": "#TWPLRh::2B0RXsyqPFimLaEjyjZx8ga/XOpXn+HIDVnbKOigKwg# #tqVVX3:lp21TwfoZOew4X+QQ/6Lbw:Q6E40/+W1SqKZv7PiALmNXXrZROzqi/jaTYwCD5/HA8#"
+          }
+        ],
+        "style": "above",
+        "queryType": 0
+      },
+      "name": "parameters"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "{\"version\": \"CustomEndpoint/1.0\", \"data\": null, \"headers\": [{\"name\": \"Content-Type\", \"value\": \"application/json\"}], \"method\": \"POST\", \"url\": \"{FunctionEndpoint}\", \"body\": \"{\\\"tokens\\\": \\\"{Tokens}\\\"}\", \"transformers\": [{\"type\": \"jsonpath\", \"settings\": {\"tablePath\": \"$.results\", \"columns\": [{\"path\": \"$.input\", \"columnid\": \"Token\"}, {\"path\": \"$.plaintext\", \"columnid\": \"Plaintext\"}, {\"path\": \"$.ok\", \"columnid\": \"OK\"}, {\"path\": \"$.error\", \"columnid\": \"Error\"}]}}]}",
+        "size": 0,
+        "title": "Decrypted values",
+        "queryType": 10,
+        "visualization": "table",
+        "gridSettings": {
+          "formatters": [
+            {
+              "columnMatch": "OK",
+              "formatter": 18,
+              "formatOptions": {
+                "thresholdsOptions": "icons",
+                "thresholdsGrid": [
+                  {
+                    "operator": "==",
+                    "thresholdValue": "true",
+                    "representation": "success",
+                    "text": ""
+                  },
+                  {
+                    "operator": "Default",
+                    "thresholdValue": null,
+                    "representation": "error",
+                    "text": ""
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "name": "decrypt-grid"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "### Feeding from a table (production)\nDrive **Tokens** from a parameter query over your ingested data:\n\n```kql\nMyCriblTable_CL\n| where TimeGenerated > ago(1h)\n| summarize Tokens = strcat_array(make_list(EncryptedField_s), ' ')\n```\nSet that query as the source for the `Tokens` parameter, then this panel decrypts the column."
+      },
+      "name": "prod-note"
+    }
+  ],
+  "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
+}

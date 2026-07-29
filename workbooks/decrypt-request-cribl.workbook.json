@@ -1,0 +1,85 @@
+{
+  "version": "Notebook/1.0",
+  "items": [
+    {
+      "type": 1,
+      "content": {
+        "json": "## Insert your query and destination table name below then hit Submit."
+      },
+      "name": "text - 1",
+      "id": "11a65e85-174f-41a9-8ef6-a7c7f551c487"
+    },
+    {
+      "type": 9,
+      "content": {
+        "version": "KqlParameterItem/1.0",
+        "parameters": [
+          {
+            "id": "4b7fc290-7082-492c-ba04-fd136a131cf8",
+            "version": "KqlParameterItem/1.0",
+            "name": "query",
+            "label": "Query for data decrypt",
+            "type": 1,
+            "description": "Paste the KQL you would like the serch job to execute.",
+            "typeSettings": {
+              "multiLineText": true,
+              "editorLanguage": "kql",
+              "multiLineHeight": 10
+            },
+            "timeContext": {
+              "durationMs": 86400000
+            },
+            "value": "Colors_CL\r\n| where TimeGenerated > ago(3d)\r\n| sort by TimeGenerated desc\r\n| limit 10"
+          }
+        ],
+        "style": "above"
+      },
+      "name": "parameters - 0",
+      "id": "03c1bd71-c206-43fc-bfc0-6e14090eb18e"
+    },
+    {
+      "type": 11,
+      "content": {
+        "version": "LinkItem/1.0",
+        "style": "toolbar",
+        "links": [
+          {
+            "id": "fcdc9118-09bf-408c-8dae-7c1d144d2c81",
+            "linkTarget": "ArmAction",
+            "linkLabel": "Submit",
+            "postText": "Start the search job above",
+            "style": "link",
+            "icon": "Upload",
+            "linkIsContextBlade": true,
+            "armActionContext": {
+              "path": "/subscriptions/<subscriptionId>/resourcegroups/<logicAppResourceGroup>/providers/Microsoft.Logic/workflows/cribl-decrypt-microsoft/triggers/When_an_HTTP_request_is_received/run",
+              "headers": [],
+              "params": [
+                {
+                  "key": "api-version",
+                  "value": "2016-06-01"
+                }
+              ],
+              "body": "{ \"query\": \"{query:escapejson}\"}",
+              "httpMethod": "POST",
+              "title": "Submit Search Job for Execution",
+              "description": "# This will submit the search job for execution.",
+              "runLabel": "Submit Search Job"
+            },
+            "key": "fcdc9118-09bf-408c-8dae-7c1d144d2c81"
+          }
+        ]
+      },
+      "name": "links - 2",
+      "id": "2af845c8-6611-4bc0-a84d-7bb123433783"
+    }
+  ],
+  "fallbackResourceIds": [
+    "/subscriptions/<subscriptionId>/resourcegroups/<workspaceResourceGroup>/providers/microsoft.operationalinsights/workspaces/<workspaceName>"
+  ],
+  "fromTemplateId": "sentinel-UserWorkbook",
+  "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json",
+  "context": {
+    "ownerId": "/subscriptions/<subscriptionId>/resourceGroups/<workspaceResourceGroup>/providers/Microsoft.OperationalInsights/workspaces/<workspaceName>"
+  }
+}

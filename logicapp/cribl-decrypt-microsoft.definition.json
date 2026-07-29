@@ -1,0 +1,62 @@
+{
+  "definition": {
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+      "$connections": {
+        "defaultValue": {},
+        "type": "Object"
+      }
+    },
+    "triggers": {
+      "When_an_HTTP_request_is_received": {
+        "kind": "Http",
+        "type": "Request",
+        "inputs": {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "query": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "actions": {
+      "Call_query_decrypt_function": {
+        "type": "Http",
+        "runAfter": {},
+        "inputs": {
+          "method": "POST",
+          "uri": "https://<functionAppName>.azurewebsites.net/api/query-decrypt",
+          "headers": {
+            "Content-Type": "application/json",
+            "x-functions-key": "<FUNCTION_KEY>"
+          },
+          "body": {
+            "query": "@{triggerBody()?['query']}"
+          }
+        }
+      },
+      "Response": {
+        "type": "Response",
+        "kind": "Http",
+        "runAfter": {
+          "Call_query_decrypt_function": [
+            "Succeeded"
+          ]
+        },
+        "inputs": {
+          "statusCode": 200,
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "body": "@body('Call_query_decrypt_function')"
+        }
+      }
+    },
+    "outputs": {}
+  }
+}

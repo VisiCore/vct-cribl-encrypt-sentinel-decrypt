@@ -1,0 +1,105 @@
+# Azure DevOps pipeline — deploys the Cribl→Sentinel decrypt POC end to end.
+#
+# Stages (single stage, sequential steps so outputs flow via job variables):
+#   1. Deploy infra Bicep      -> Storage, Key Vault, Flex Function App + MSI
+#   2. Publish the Function     -> bundles src/cribl_decrypt into the app, remote-builds
+#   3. Deploy the playbook      -> Logic App wired to the Function's /api/decrypt
+#
+# PREREQUISITES (one-time, in Azure DevOps):
+#   - An ARM service connection to the target subscription. Put its name in the
+#     `azureServiceConnection` variable (or a variable group).
+#   - The service connection's SP needs Owner/Contributor + User Access Admin on
+#     the resource group (it creates role assignments).
+#   - Set `keyAdminObjectId` to the object id that will upload Cribl keys.
+
+trigger:
+  branches:
+    include: [ main ]
+  paths:
+    include: [ infra/*, playbook/*, src/*, azure-pipelines.yml ]
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  azureServiceConnection: 'cribl-azure'      # <-- ARM service connection name
+  resourceGroup: 'rg-cribl-sentinel-poc'
+  location: 'eastus'
+  namePrefix: 'cribldec'
+  keyAdminObjectId: ''                        # <-- object id of the key uploader (SP/user)
+  functionPackageDir: 'src/function_app'
+
+stages:
+  - stage: Deploy
+    jobs:
+      - job: deploy
+        displayName: Deploy infra, function, and playbook
+        steps:
+          # --- 1. Infra ----------------------------------------------------
+          - task: AzureCLI@2
+            displayName: 'Deploy infra Bicep'
+            inputs:
+              azureSubscription: $(azureServiceConnection)
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                set -euo pipefail
+                az group create -n "$(resourceGroup)" -l "$(location)" 1>/dev/null
+                outputs=$(az deployment group create \
+                  --resource-group "$(resourceGroup)" \
+                  --template-file infra/main.bicep \
+                  --parameters infra/main.bicepparam \
+                  --parameters namePrefix="$(namePrefix)" \
+                  --query properties.outputs -o json)
+                echo "$outputs"
+                functionAppName=$(echo "$outputs" | jq -r '.functionAppName.value')
+                keyVaultName=$(echo "$outputs"   | jq -r '.keyVaultName.value')
+                echo "##vso[task.setvariable variable=functionAppName]$functionAppName"
+                echo "##vso[task.setvariable variable=keyVaultName]$keyVaultName"
+            env:
+              KEY_ADMIN_OBJECT_ID: $(keyAdminObjectId)
+
+          # --- 2. Function package + publish ------------------------------
+          - task: UsePythonVersion@0
+            inputs: { versionSpec: '3.11' }
+          - bash: |
+              set -euo pipefail
+              # Ship the shared crypto package inside the function app.
+              cp -r src/cribl_decrypt "$(functionPackageDir)/cribl_decrypt"
+              # Azure Functions Core Tools for remote-build publish (Flex Consumption).
+              npm i -g azure-functions-core-tools@4 --unsafe-perm true
+            displayName: 'Bundle cribl_decrypt + install Core Tools'
+
+          - task: AzureCLI@2
+            displayName: 'Publish Function (remote build)'
+            inputs:
+              azureSubscription: $(azureServiceConnection)
+              scriptType: bash
+              scriptLocation: inlineScript
+              workingDirectory: $(functionPackageDir)
+              inlineScript: |
+                set -euo pipefail
+                # func inherits the az login context from this AzureCLI task.
+                func azure functionapp publish "$(functionAppName)" --python --build remote
+
+          # --- 3. Playbook -------------------------------------------------
+          - task: AzureCLI@2
+            displayName: 'Deploy Sentinel playbook'
+            inputs:
+              azureSubscription: $(azureServiceConnection)
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                set -euo pipefail
+                host=$(az functionapp show -g "$(resourceGroup)" -n "$(functionAppName)" \
+                  --query defaultHostName -o tsv)
+                # Host key works for FUNCTION-auth routes.
+                code=$(az functionapp keys list -g "$(resourceGroup)" -n "$(functionAppName)" \
+                  --query functionKeys.default -o tsv)
+                endpoint="https://${host}/api/decrypt?code=${code}"
+                az deployment group create \
+                  --resource-group "$(resourceGroup)" \
+                  --template-file playbook/playbook.bicep \
+                  --parameters functionEndpoint="$endpoint" \
+                  1>/dev/null
+                echo "Playbook deployed. Endpoint wired to https://${host}/api/decrypt"
