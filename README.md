@@ -144,6 +144,11 @@ join-based approach. What the on-demand flow changes is *how much*:
 The sweep still exists in code but exits immediately unless the app setting
 `ENABLE_DECRYPT_SWEEP=true` is set — deliberately opt-in, not default.
 
+The two tables involved — ciphertext at rest and the on-demand decrypted join
+table — in the Log Analytics workspace:
+
+![The Cribl custom tables in the Log Analytics workspace](docs/images/sentinel-tables.png)
+
 If a use case needs **zero** second-table ingestion, use the surfaces that
 return plaintext without storing it — the incident playbook (comment on the
 incident) or the `/api/ui` page — at the cost of losing the inline KQL join.
@@ -176,6 +181,11 @@ docs/how-it-works.md                            # stage-by-stage walkthrough wit
 ```
 
 ## Deployment
+
+Everything below lands in one resource group — all consumption/serverless, so an
+idle deployment costs close to nothing:
+
+![Deployed resource group](docs/images/resource-group.png)
 
 ### 1. Core infra + Function
 
